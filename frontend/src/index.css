@@ -9,6 +9,8 @@
   --muted: #8B929B;
   --accent: #00D4B4;
   --accent-dim: rgba(0, 212, 180, 0.14);
+  --tally: #FF3B30;
+  --tally-dim: rgba(255, 59, 48, 0.14);
   --danger: #FF6B6B;
   --danger-bg: rgba(255, 107, 107, 0.12);
 }
@@ -39,7 +41,16 @@ select:focus-visible {
   padding: 28px 32px 60px;
 }
 
-.topbar { margin-bottom: 28px; }
+.topbar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.topbar-left { min-width: 0; }
 
 .wordmark {
   font-size: 22px;
@@ -52,6 +63,24 @@ select:focus-visible {
   color: var(--muted);
   font-size: 13px;
   margin: 0;
+}
+
+.clock {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.clock__time {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.clock__label {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
 }
 
 .layout {
@@ -78,25 +107,37 @@ select:focus-visible {
   border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
-  transition: border-color 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .tile--synced {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent);
+  border-color: var(--tally);
+  box-shadow: 0 0 0 1px var(--tally), 0 0 24px -8px var(--tally);
 }
 
 .tile__header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 10px;
   padding: 10px 14px;
   border-bottom: 1px solid var(--border);
+}
+
+.tile__rack {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 6px;
+  flex-shrink: 0;
 }
 
 .tile__name {
   font-size: 13px;
   font-weight: 600;
+  flex: 1;
 }
 
 .tile__badge {
@@ -106,7 +147,7 @@ select:focus-visible {
 }
 
 .tile__badge--synced {
-  color: var(--accent);
+  color: var(--tally);
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -119,6 +160,10 @@ select:focus-visible {
   background: var(--accent);
   display: inline-block;
   animation: pulse 1.4s ease-in-out infinite;
+}
+
+.dot--tally {
+  background: var(--tally);
 }
 
 @keyframes pulse {
@@ -152,6 +197,20 @@ select:focus-visible {
   background: var(--surface-2);
 }
 
+.tile__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 14px;
+  background: var(--surface-2);
+}
+
+.tile__countdown {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+}
+
 .tile__progress {
   height: 3px;
   background: var(--surface-2);
@@ -161,6 +220,10 @@ select:focus-visible {
   height: 100%;
   background: var(--accent);
   transition: width 0.2s linear;
+}
+
+.tile__progress-fill--synced {
+  background: var(--tally);
 }
 
 /* ---------- Control panel ---------- */

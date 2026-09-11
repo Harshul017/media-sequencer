@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import MediaFrame from './MediaFrame';
-import { computeCurrentItem } from '../playback';
+import { computeCurrentItem, formatCountdown } from '../playback';
 
-export default function WindowTile({ window, cycleSeconds, getEstimatedNow, syncState }) {
-  // Re-render on a short tick so the progress bar and item switches
-  // happen smoothly, without needing any network call for normal playback.
+export default function WindowTile({ window, rackNumber, cycleSeconds, getEstimatedNow, syncState }) {
+  // Re-render on a short tick so the progress bar, countdown, and item
+  // switches happen smoothly, without any network call for normal playback.
   const [, forceTick] = useState(0);
   useEffect(() => {
     const id = setInterval(() => forceTick((n) => n + 1), 250);
@@ -28,17 +28,24 @@ export default function WindowTile({ window, cycleSeconds, getEstimatedNow, sync
 
   const progress = !isSynced && current ? current.msIntoItem / current.itemDurationMs : null;
 
+  const countdownMs = isSynced
+    ? new Date(syncState.ends_at).getTime() - getEstimatedNow()
+    : current
+      ? current.itemDurationMs - current.msIntoItem
+      : null;
+
   return (
     <div className={`tile ${isSynced ? 'tile--synced' : ''}`}>
       <div className="tile__header">
+        <span className="tile__rack">{String(rackNumber).padStart(2, '0')}</span>
         <span className="tile__name">{window.name}</span>
         {isSynced ? (
           <span className="tile__badge tile__badge--synced">
-            <span className="dot" /> Synced
+            <span className="dot dot--tally" /> On air
           </span>
         ) : current ? (
           <span className="tile__badge">
-            Item {current.index + 1} of {window.items.length}
+            {current.index + 1} / {window.items.length}
           </span>
         ) : null}
       </div>
@@ -53,9 +60,18 @@ export default function WindowTile({ window, cycleSeconds, getEstimatedNow, sync
 
       <div className="tile__progress">
         <div
-          className="tile__progress-fill"
+          className={`tile__progress-fill ${isSynced ? 'tile__progress-fill--synced' : ''}`}
           style={{ width: progress != null ? `${progress * 100}%` : isSynced ? '100%' : '0%' }}
         />
+      </div>
+
+      <div className="tile__footer">
+        <span className="tile__countdown">
+          {isSynced ? 'Sync ends in' : 'Next in'}
+        </span>
+        <span className="tile__countdown">
+          {countdownMs != null ? formatCountdown(countdownMs) : '—'}
+        </span>
       </div>
     </div>
   );

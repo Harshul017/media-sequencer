@@ -9,6 +9,7 @@ export default function App() {
   const [cycleSeconds, setCycleSeconds] = useState(18000);
   const [syncState, setSyncState] = useState({ active: false });
   const [error, setError] = useState('');
+  const [clockLabel, setClockLabel] = useState('');
 
   // Tracks the offset between this browser's clock and the backend's
   // clock, captured whenever we fetch /windows. Using a ref (not state)
@@ -56,21 +57,47 @@ export default function App() {
     return () => clearInterval(id);
   }, []);
 
+  // A live running clock — a real control-room readout, and a genuine
+  // sanity check that the page's own tab is still ticking, not just
+  // decoration.
+  useEffect(() => {
+    const tick = () => {
+      setClockLabel(
+        new Date(getEstimatedNow()).toLocaleTimeString(undefined, {
+          hour12: false,
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        })
+      );
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [getEstimatedNow]);
+
   return (
     <div className="app">
       <header className="topbar">
-        <h1 className="wordmark">Signal Wall</h1>
-        <p className="subtitle">Multi-window media sequencer with sync playback</p>
+        <div className="topbar-left">
+          <h1 className="wordmark">Signal Wall</h1>
+          <p className="subtitle">Multi-window media sequencer with sync playback</p>
+        </div>
+        <div className="clock">
+          <div className="clock__time mono">{clockLabel}</div>
+          <div className="clock__label">System clock</div>
+        </div>
       </header>
 
       {error && <div className="banner banner--error banner--page">{error}</div>}
 
       <div className="layout">
         <div className="grid">
-          {windows.map((w) => (
+          {windows.map((w, i) => (
             <WindowTile
               key={w.id}
               window={w}
+              rackNumber={i + 1}
               cycleSeconds={cycleSeconds}
               getEstimatedNow={getEstimatedNow}
               syncState={syncState}
