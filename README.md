@@ -1,66 +1,88 @@
 # Signal Wall — Multi-Window Media Sequencer with Sync Playback
 
-A full-stack application where multiple display windows continuously play
-their own configured media sequence, support dynamic playlist changes, and
-can be "synced" so every window briefly shows the same item at the same
-time before resuming exactly where it left off.
+## What this is, in plain terms
 
-Backend: Go + SQLite. Frontend: React (Vite).
+Imagine a wall of screens in a store or lobby. Each screen loops its own
+playlist of images and videos, over and over, completely independently of
+the others. There's also one special button: **Sync**. Press it, and every
+screen instantly switches to show the exact same thing at the same time —
+like a store manager cutting to a "Sale starts now!" announcement across
+every screen at once. A few seconds later, every screen quietly goes back
+to whatever it was doing before, picking up exactly where it left off, as
+if the interruption never happened.
+
+This project is that system: a backend that stores each screen's playlist
+and coordinates the sync moment, and a frontend that actually displays the
+screens and lets an operator add media or trigger a sync.
+
+**Backend:** Go, with data saved permanently in a SQLite database.
+**Frontend:** React, styled like real broadcast-monitor software.
 
 ---
 
-## Live Links
+## Try It Right Now
 
-| What | URL |
+These are live, clickable links — no setup required to see it working.
+
+| What | Link |
 |---|---|
-| Backend API | _to be added after deployment_ |
-| Public health check | _to be added after deployment_ |
-| Frontend | _to be added after deployment_ |
-| GitHub repo | _add your repo URL here_ |
+| **Live app (the screen wall itself)** | https://media-sequencer-2.onrender.com |
+| Backend health check | https://media-sequencer-rluh.onrender.com/health |
+| Backend raw data (all windows + playlists) | https://media-sequencer-rluh.onrender.com/windows |
+| GitHub repository | https://github.com/Harshul017/media-sequencer |
+
+Opening the live app link shows 3 windows already looping real seeded
+content. Try the "Add media" and "Trigger sync" controls on the right —
+they talk to the real, live backend.
 
 ---
 
-## How It Works
+## How It Actually Works
 
-**Continuous playback (no network calls needed):** each window's playlist
-is fetched once and then played entirely by client-side math — the
-browser computes "what should be on screen right now" from elapsed time,
-with no repeated polling required just to keep playing.
+### Each window loops on its own, without asking the backend anything
 
-**The 5-hour cycle:** every window is treated as looping within an
-18,000-second (5-hour) window. In practice this means: take the current
-time, reduce it to "position within the current 5-hour cycle," then
-reduce that further to "position within one pass of this window's own
-playlist" to find the current item. At the exact 5-hour boundary,
-position snaps back to zero — the playlist restarts from item one,
-regardless of what was playing — matching the assignment's own wording,
-"restarts its media list after the sequence ends."
+Every window's playlist is fetched once. From there, the browser
+continuously calculates "what should be showing right now" using nothing
+but the current time and simple math — no repeated requests needed just
+to keep something playing. This is why playback stays smooth even if the
+network briefly hiccups.
 
-**Dynamic updates:** adding media calls `POST /windows/{id}/media`; the
-frontend re-fetches the window list periodically (every 8 seconds) so new
-items appear without a manual refresh.
+### The "5-hour cycle"
 
-**Sync, and why it truly pauses (not skips):** triggering a sync doesn't
-just tell every window to display an item — it also adds the sync's full
-duration to a running total (`total_paused_seconds`) on the backend.
-Every window subtracts that running total from its own elapsed-time
-calculation before computing its position. The instant that total
-increases, every window's computed position jumps backward by exactly the
-sync duration, then ticks forward normally — arriving back at the
-pre-sync position only once the sync's real-world duration has actually
-elapsed. The net effect: playback truly freezes during a sync and resumes
-from the exact same point afterward, with no per-window bookkeeping
-needed — one shared number, subtracted everywhere.
+The assignment treats each window's total play span as 5 hours (18,000
+seconds) before its playlist is considered to "restart." In practice:
+take the current time, find the position within the current 5-hour
+window, then find the position within one pass of that window's own
+playlist — that tells the browser exactly which item to show. At the
+exact 5-hour mark, the position resets to zero and the playlist starts
+over from item one, regardless of what was showing — matching the
+assignment's own wording that each window "restarts its media list after
+the sequence ends."
 
-**Why polling, not WebSockets:** the sync feature only needs to feel
-responsive to a human watching multiple screens — a delay of up to one
-second is imperceptible in that context. Polling `/sync-state` once a
-second gets that result with dramatically less complexity than a
-WebSocket connection registry, reconnect-on-drop handling, and server-side
-broadcast logic would require. At a larger scale (many more windows, more
-frequent syncs), WebSockets or Server-Sent Events would be worth
-revisiting — this was a deliberate trade-off for this scope, not an
-oversight.
+### How Sync works, and why it truly pauses instead of skipping
+
+When someone triggers a sync, the backend does two things at once:
+records "show this item for N seconds," and adds that N seconds to a
+running total of "time ever spent in sync." Every window subtracts that
+running total from its own clock before computing its position. The
+moment that total increases, every window's computed position jumps
+backward by exactly N seconds — effectively freezing it — and only
+catches back up to the real time once N real seconds have actually
+passed. The result: when sync ends, each window resumes from the *exact
+same spot* it was interrupted at, not wherever it would have organically
+drifted to. See the diagram below for the exact mechanics.
+
+### Why polling instead of WebSockets
+
+Every window checks "is a sync happening?" once per second, rather than
+keeping an always-open connection to the server (the WebSocket approach).
+A human watching multiple screens cannot perceive a delay of up to one
+second as broken — it reads as instant. Polling achieves that same
+practical result with far less code and far fewer ways to fail (no
+dropped-connection handling, no reconnect logic) than WebSockets would
+require. At a much larger scale — hundreds of windows, frequent syncs —
+WebSockets would become worth that added complexity; for this scope, it
+wasn't.
 
 ---
 
@@ -100,7 +122,7 @@ flowchart LR
 ```
 
 The two polling loops on the right are intentionally separate: playlist
-data changes rarely (only when an operator adds media), so it's fetched
+data changes rarely (only when an operator adds media), so it's checked
 infrequently; sync state needs to feel responsive, so it's checked every
 second.
 
@@ -176,36 +198,38 @@ infrastructure, not personal accounts).
 | GET | `/sync-state` | Current sync status — polled by every window |
 | POST | `/sync` | Trigger a synced moment across all windows |
 
-### Example requests
+### Try these against the live backend
 
-**List windows**
+**List windows** (open directly in a browser, or curl):
 ```
-curl http://localhost:8080/windows
+curl https://media-sequencer-rluh.onrender.com/windows
 ```
 Returns `{"server_time": "...", "cycle_seconds": 18000, "windows": [...]}`.
 
-**Add media to a window**
+**Add media to a window:**
 ```
-curl -X POST http://localhost:8080/windows/1/media \
+curl -X POST https://media-sequencer-rluh.onrender.com/windows/1/media \
   -H "Content-Type: application/json" \
-  -d '{"type":"image","url":"https://example.com/photo.jpg","duration_seconds":6}'
+  -d '{"type":"image","url":"https://picsum.photos/seed/example/800/450","duration_seconds":6}'
 ```
 `type` is `image`, `video`, or `blank`. `url` is not required for `blank`.
 
-**Check sync state**
+**Check sync state:**
 ```
-curl http://localhost:8080/sync-state
+curl https://media-sequencer-rluh.onrender.com/sync-state
 ```
 Returns `{"active": false}` normally, or
 `{"active": true, "type": "image", "url": "...", "ends_at": "...", "total_paused_seconds": 10}`
 while a sync is active.
 
-**Trigger a sync**
+**Trigger a sync:**
 ```
-curl -X POST http://localhost:8080/sync \
+curl -X POST https://media-sequencer-rluh.onrender.com/sync \
   -H "Content-Type: application/json" \
-  -d '{"type":"image","url":"https://example.com/sync-item.jpg","duration_seconds":10}'
+  -d '{"type":"image","url":"https://picsum.photos/seed/synctest/800/450","duration_seconds":10}'
 ```
+Open the live app link above in a browser tab first, then run this — you'll
+see every window switch over within about a second.
 
 ---
 
@@ -237,21 +261,31 @@ docker run -p 8080:8080 media-sequencer
 curl http://localhost:8080/health
 ```
 
+## Deployment
+
+Both services are deployed on Render's free tier:
+- **Backend** — deployed as a Web Service from the Dockerfile at the repo
+  root. Health check path set to `/health`.
+- **Frontend** — deployed as a Static Site, with root directory
+  `frontend`, build command `npm ci && npm run build`, publish directory
+  `dist`, and one environment variable: `VITE_API_BASE` set to the
+  deployed backend's URL.
+
 ---
 
 ## Assumptions
 
 - **Polling over WebSockets** for sync-state, given the latency tolerance
-  of this use case — see "Why polling, not WebSockets" above.
+  of this use case — see "How It Actually Works" above.
 - **Sync truly pauses, not skips, normal playback** — a deliberate design
-  decision (see "Sync Pause Logic" above), interpreting the brief's
-  "continue its own normal sequence without losing its playlist
-  configuration" as resuming from the exact interrupted position, not
-  wherever elapsed time would otherwise place it.
+  decision, interpreting the brief's "continue its own normal sequence
+  without losing its playlist configuration" as resuming from the exact
+  interrupted position, not wherever elapsed time would otherwise place
+  it. See the "Sync Pause Logic" diagram for the exact mechanism.
 - **Sync state lives in memory, not the database.** It's short-lived
   coordination state (what to show right now, for the next few seconds),
   not data that needs to survive a server restart — persisting it would
-  add complexity without a corresponding benefit. Window/media data,
+  add complexity without a corresponding benefit. Window and media data,
   which does need to persist, is stored in SQLite.
 - **`duration_seconds` is admin-configured, independent of actual media
   length.** A video plays (looped, muted, autoplaying) for however long
@@ -260,8 +294,13 @@ curl http://localhost:8080/health
   the playlist slot, not the file.
 - **The 5-hour cycle boundary is a hard reset**, matching the brief's
   wording ("restarts its media list") rather than a seamless loop — see
-  "How It Works" above for the exact mechanics.
+  "How It Actually Works" above for the exact mechanics.
 - **No authentication.** Not required by the brief, and there's no
   per-user data model here — windows are shared operator infrastructure.
 - **CORS is permissive** (`Access-Control-Allow-Origin: *`), matching the
   scope of this assignment rather than a production multi-tenant service.
+- **Render free-tier trade-offs**, documented rather than hidden: the
+  backend has no persistent disk, so the SQLite database resets on
+  redeploy or restart; and the free web service spins down after ~15
+  minutes of inactivity, so the first request after a gap can take
+  20–50 seconds while it wakes back up.
