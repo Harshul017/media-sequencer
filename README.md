@@ -1,4 +1,4 @@
-# Signal Wall — Multi-Window Media Sequencer with Sync Playback
+# Signal Wall — Multi-Window Media Sequencer with Sync Playback -
 
 ## What this is, in plain terms
 
